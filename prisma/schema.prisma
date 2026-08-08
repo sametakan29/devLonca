@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id             String     @id @default(cuid())
+  name           String
+  surname        String?
+  email          String     @unique
+  password       String
+  bio            String?
+  githubUrl      String?
+  university     String?
+  department     String?
+  internshipType String?    // e.g. "Zorunlu Staj", "Gönüllü Staj", "Tam Zamanlı", "Part-Time"
+  skills         String[]   @default([])
+  role           Role       @default(MEMBER)
+  avatarUrl      String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  articles       Article[]
+  questions      Question[]
+  answers        Answer[]
+
+  @@map("users")
+}
+
+enum Role {
+  MEMBER
+  ADMIN
+  MAINTAINER
+}
+
+model Article {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String
+  summary     String?
+  published   Boolean  @default(true)
+  views       Int      @default(0)
+  tags        String[] @default([])
+  
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("articles")
+}
+
+model Question {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  tags        String[] @default([])
+  views       Int      @default(0)
+  
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  answers     Answer[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("questions")
+}
+
+model Answer {
+  id          String   @id @default(cuid())
+  content     String
+  isAccepted  Boolean  @default(false)
+  
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("answers")
+}
+
+model Tag {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@map("tags")
+}
