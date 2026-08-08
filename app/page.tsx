@@ -14,67 +14,42 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { prisma } from "@/lib/prisma";
+import { formatDate } from "@/lib/utils";
 
-export default function HomePage() {
-  const dummyArticles = [
-    {
-      id: "1",
-      title: "Next.js 14 App Router ve Server Actions ile Modern Web Geliştirme",
-      summary: "Next.js 14 App Router mimarisi, React Server Components ve Server Actions kullanarak tam donanımlı web uygulamaları inşa etme rehberi.",
-      author: "Ahmet Yılmaz",
-      university: "İTÜ Bilgisayar Müh.",
-      date: "8 Ağustos 2026",
-      tags: ["Next.js", "React", "TypeScript"],
-      views: 240,
-    },
-    {
-      id: "2",
-      title: "Prisma ORM & PostgreSQL ile Veritabanı Mimarisi ve Clean Code",
-      summary: "Ölçeklenebilir veritabanı şemaları oluşturma, migration yönetimi ve Prisma Client optimizasyon ipuçları.",
-      author: "Zeynep Kaya",
-      university: "ODTÜ Yazılım Müh.",
-      date: "7 Ağustos 2026",
-      tags: ["PostgreSQL", "Prisma", "Database"],
-      views: 185,
-    },
-    {
-      id: "3",
-      title: "Açık Kaynak Projelere İlk PR: GitHub İş Akışı ve Etiket Kültürü",
-      summary: "İlk açık kaynak katkınızı yaparken dikkat etmeniz gerekenler, commit standartları ve PR inceleme süreçleri.",
-      author: "Can Demir",
-      university: "Marmara Üni. YBS",
-      date: "5 Ağustos 2026",
-      tags: ["Open Source", "Git", "GitHub"],
-      views: 310,
-    },
-  ];
+export const revalidate = 0;
 
-  const dummyQuestions = [
-    {
-      id: "1",
-      title: "TypeScript'te Generic Constraint kullanımı ve React Props tiplendirme",
-      author: "Burak K.",
-      answersCount: 4,
-      tags: ["TypeScript", "React"],
-      date: "2 saat önce",
-    },
-    {
-      id: "2",
-      title: "Zorunlu staj için Back-End alanında öne çıkan açık kaynak projeler nelerdir?",
-      author: "Elif S.",
-      answersCount: 7,
-      tags: ["Staj", "Career", "Backend"],
-      date: "5 saat önce",
-    },
-    {
-      id: "3",
-      title: "NextAuth Credentials provider ile JWT custom claim ekleme sorunu",
-      author: "Mert T.",
-      answersCount: 2,
-      tags: ["NextAuth", "Next.js"],
-      date: "1 gün önce",
-    },
-  ];
+export default async function HomePage() {
+  let latestArticles: any[] = [];
+  let latestQuestions: any[] = [];
+
+  try {
+    latestArticles = await prisma.article.findMany({
+      where: { published: true },
+      include: {
+        author: {
+          select: { name: true, surname: true, university: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+    });
+
+    latestQuestions = await prisma.question.findMany({
+      include: {
+        author: {
+          select: { name: true, surname: true },
+        },
+        _count: {
+          select: { answers: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+    });
+  } catch (error) {
+    console.error("Home page DB fetch error:", error);
+  }
 
   return (
     <div className="space-y-16 pb-16">
@@ -212,41 +187,53 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-4">
-              {dummyArticles.map((article) => (
-                <Card key={article.id} className="hover:border-indigo-500/40 transition-all">
-                  <CardHeader className="p-5">
-                    <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-700 dark:text-slate-300">{article.author}</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1"><GraduationCap className="h-3 w-3" /> {article.university}</span>
+              {latestArticles.length === 0 ? (
+                <p className="text-xs text-slate-500 italic p-4 border border-dashed rounded-lg text-center">
+                  Henüz makale yazılmadı. İlk makaleyi siz yazın!
+                </p>
+              ) : (
+                latestArticles.map((article) => (
+                  <Card key={article.id} className="hover:border-indigo-500/40 transition-all">
+                    <CardHeader className="p-5">
+                      <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {article.author ? `${article.author.name} ${article.author.surname || ""}`.trim() : "Anonim"}
+                          </span>
+                          {article.author?.university && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1"><GraduationCap className="h-3 w-3" /> {article.author.university}</span>
+                            </>
+                          )}
+                        </div>
+                        <span>{formatDate(article.createdAt)}</span>
                       </div>
-                      <span>{article.date}</span>
-                    </div>
 
-                    <Link href={`/articles/${article.id}`}>
-                      <CardTitle className="text-lg hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer leading-snug">
-                        {article.title}
-                      </CardTitle>
-                    </Link>
+                      <Link href={`/articles/${article.id}`}>
+                        <CardTitle className="text-lg hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer leading-snug">
+                          {article.title}
+                        </CardTitle>
+                      </Link>
 
-                    <CardDescription className="line-clamp-2 mt-2">
-                      {article.summary}
-                    </CardDescription>
+                      <CardDescription className="line-clamp-2 mt-2">
+                        {article.summary || article.content.substring(0, 160)}
+                      </CardDescription>
 
-                    <div className="flex items-center justify-between pt-4">
-                      <div className="flex flex-wrap gap-1.5">
-                        {article.tags.map((tag) => (
-                          <Badge key={tag} variant="indigo">
-                            {tag}
-                          </Badge>
-                        ))}
+                      <div className="flex items-center justify-between pt-4">
+                        <div className="flex flex-wrap gap-1.5">
+                          {article.tags?.map((tag: string) => (
+                            <Badge key={tag} variant="indigo">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                        <span className="text-xs text-slate-400 font-mono">{article.views || 0} okuma</span>
                       </div>
-                      <span className="text-xs text-slate-400 font-mono">{article.views} okuma</span>
-                    </div>
-                  </CardHeader>
-                </Card>
-              ))}
+                    </CardHeader>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
 
@@ -263,32 +250,38 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-4">
-              {dummyQuestions.map((q) => (
-                <Card key={q.id} className="hover:border-emerald-500/40 transition-all">
-                  <CardContent className="p-4 space-y-3">
-                    <Link href={`/questions/${q.id}`}>
-                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors line-clamp-2">
-                        {q.title}
-                      </h4>
-                    </Link>
+              {latestQuestions.length === 0 ? (
+                <p className="text-xs text-slate-500 italic p-4 border border-dashed rounded-lg text-center">
+                  Henüz soru sorulmadı.
+                </p>
+              ) : (
+                latestQuestions.map((q) => (
+                  <Card key={q.id} className="hover:border-emerald-500/40 transition-all">
+                    <CardContent className="p-4 space-y-3">
+                      <Link href={`/questions/${q.id}`}>
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors line-clamp-2">
+                          {q.title}
+                        </h4>
+                      </Link>
 
-                    <div className="flex items-center justify-between text-xs text-slate-500">
-                      <span>{q.author} • {q.date}</span>
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
-                        {q.answersCount} Yanıt
-                      </span>
-                    </div>
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>{q.author?.name || "Anonim"} • {formatDate(q.createdAt)}</span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                          {q._count?.answers || 0} Yanıt
+                        </span>
+                      </div>
 
-                    <div className="flex flex-wrap gap-1">
-                      {q.tags.map((t) => (
-                        <Badge key={t} variant="secondary" className="text-[10px] py-0">
-                          {t}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      <div className="flex flex-wrap gap-1">
+                        {q.tags?.map((t: string) => (
+                          <Badge key={t} variant="secondary" className="text-[10px] py-0">
+                            {t}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
 
             {/* Quick Ask CTA Box */}
